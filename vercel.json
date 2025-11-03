@@ -2,28 +2,13 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
+      "src": "app.py",
       "use": "@vercel/python"
     },
     {
       "src": "static/**",
       "use": "@vercel/static"
     }
-    {
-  "version": 2,
-  "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "(.*)",
-      "dest": "app.py"
-    }
-  ]
-}
   ],
   "routes": [
     {
@@ -32,15 +17,12 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/api/index.py"
+      "dest": "/app.py"
     }
   ],
   "functions": {
-    "api/index.py": {
+    "app.py": {
       "maxDuration": 30
     }
-  },
-  "env": {
-    "PYTHONPATH": "@"
   }
 }
