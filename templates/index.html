@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Project Management System</h1>
+            <p>Manage your academic projects efficiently</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="welcome-section">
+                <h2>Welcome to the Project Management System</h2>
+                <p>This system helps students, supervisors, and FICs manage academic projects effectively.</p>
+            </div>
+            
+            <div class="auth-buttons">
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
+                <a href="{{ url_for('register') }}" class="btn btn-secondary">Register</a>
+            </div>
+        </div>
+        
+        <footer>
+            <p>&copy; 2023 Project Management System. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>

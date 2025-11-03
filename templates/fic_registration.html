@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIC Registration - Project Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Project Management System</h1>
+            <p>FIC Registration</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="auth-form">
+                <h2>FIC Registration</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="name">Full Name:</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required>
+                        <button type="button" class="btn btn-secondary" onclick="sendOTP()" style="margin-top: 5px;">Send OTP</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="otp">OTP:</label>
+                        <input type="text" id="otp" name="otp" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="school">School:</label>
+                        <select id="school" name="school" required>
+                            <option value="">Select School</option>
+                            <option value="School of Electronics">School of Electronics</option>
+                            <option value="School of Computer Science">School of Computer Science</option>
+                            <option value="School of Electrical">School of Electrical</option>
+                            <option value="School of Civil">School of Civil</option>
+                            <option value="School of Mechanical">School of Mechanical</option>
+                            <option value="School of IT">School of IT</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password:</label>
+                        <input type="password" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+                
+                <div class="auth-links">
+                    <p><a href="{{ url_for('register') }}">Back to Role Selection</a></p>
+                    <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function sendOTP() {
+            const email = document.getElementById('email').value;
+            if (!email) {
+                alert('Please enter your email first');
+                return;
+            }
+            
+            fetch('/send_otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: email })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Network error occurred');
+            });
+        }
+    </script>
+</body>
+</html>

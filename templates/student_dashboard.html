@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Project Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="dashboard-header">
+                <div>
+                    <h1>Student Dashboard</h1>
+                    <p>Welcome, {{ student.name }} ({{ student.roll_number }})</p>
+                    <p><strong>School:</strong> {{ student.school }} | <strong>Branch:</strong> {{ student.branch }} | <strong>Year:</strong> {{ student.year }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+                </div>
+            </div>
+        </header>
+        
+        <div class="main-content">
+            <!-- Notifications Section -->
+            {% if notifications %}
+            <div class="dashboard-section">
+                <h3>Notifications</h3>
+                {% for notification in notifications %}
+                <div class="card notification-card">
+                    <div class="notification-header">
+                        <h4>{{ notification.title }}</h4>
+                        <span class="notification-date">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    <p>{{ notification.message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Group Information -->
+            <div class="dashboard-section">
+                <h3>Group Information</h3>
+                {% if group %}
+                    <div class="card">
+                        <div class="card-header">Group Details</div>
+                        <div class="group-info">
+                            <div class="info-row">
+                                <strong>Group Name:</strong> <span class="group-name">{{ group.name }}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong>Project Title:</strong> 
+                                <span id="project-title-display">
+                                    {% if group.project_title %}
+                                        {{ group.project_title }}
+                                    {% else %}
+                                        <span class="not-set">Not set</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="info-row">
+                                <strong>Supervisor:</strong> 
+                                {% if group.supervisor %}
+                                    <span class="supervisor-name">{{ group.supervisor.name }}</span>
+                                {% else %}
+                                    <span class="not-set">Not assigned</span>
+                                {% endif %}
+                            </div>
+                            <div class="info-row">
+                                <strong>Document Link:</strong> 
+                                {% if group.document_link %}
+                                    <a href="{{ group.document_link }}" target="_blank" class="document-link">{{ group.document_link }}</a>
+                                {% else %}
+                                    <span class="not-set">Not set</span>
+                                {% endif %}
+                            </div>
+                            <div class="info-row">
+                                <strong>Group Created:</strong> {{ group.created_at.strftime('%Y-%m-%d') }}
+                            </div>
+                        </div>
+                        
+                        <!-- Leave Group Button -->
+                        <div class="leave-group-section" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ecf0f1;">
+                            <button class="btn btn-danger" onclick="leaveGroup()">
+                                <span class="btn-text">Leave Group</span>
+                                <span class="btn-loading hidden">Leaving...</span>
+                            </button>
+                            <p class="warning-text" style="color: #e74c3c; font-size: 0.9em; margin-top: 0.5rem;">
+                                Warning: You can only remove yourself from the group. This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Group Members -->
+                    <div class="card">
+                        <div class="card-header">Group Members ({{ group_members|length }}/4)</div>
+                        <div class="members-list">
+                            {% for member in group_members %}
+                                <div class="member-item {% if member.id == student.id %}current-user{% endif %}">
+                                    <div class="member-info">
+                                        <strong>{{ member.name }}</strong>
+                                        <span class="roll-number">({{ member.roll_number }})</span>
+                                        {% if member.id == student.id %}
+                                            <span class="badge-you">You</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Project Management -->
+                    {% if group_members|length >= 2 %}
+                    <div class="card">
+                        <div class="card-header">Project Management</div>
+                        
+                        <!-- Project Title -->
+                        <div class="form-group">
+                            <label for="project-title">Project Title:</label>
+                            <input type="text" id="project-title" value="{{ group.project_title or '' }}" 
+                                   placeholder="Enter your project title">
+                            <button type="button" class="btn btn-primary" onclick="updateProjectTitle()" style="margin-top: 5px;">
+                                <span class="btn-text">Update Title</span>
+                                <span class="btn-loading hidden">Updating...</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Document Link -->
+                        <div class="form-group">
+                            <label for="document-link">Google Drive Document Link:</label>
+                            <input type="url" id="document-link" value="{{ group.document_link or '' }}" 
+                                   placeholder="https://drive.google.com/...">
+                            <button type="button" class="btn btn-primary" onclick="updateDocumentLink()" style="margin-top: 5px;">
+                                <span class="btn-text">Update Link</span>
+                                <span class="btn-loading hidden">Updating...</span>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                {% else %}
+                    <div class="card">
+                        <div class="no-group-message">
+                            <h4>You are not in any group yet</h4>
+                            <p>You need at least 2 members to form a group. Maximum group size is 4 members.</p>
+                            <div class="group-rules">
+                                <h5>Group Formation Rules:</h5>
+                                <ul>
+                                    <li>Groups must have between 2-4 members</li>
+                                    <li>All members must be from the same branch and year</li>
+                                    <li>Group names are automatically assigned</li>
+                                    <li>Once in a group, you cannot join another group</li>
+                                    <li>You can only remove yourself from the group</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Supervisor Change Request Section -->
+            {% if group and group.supervisor_id and group_members|length >= 2 %}
+            <div class="dashboard-section">
+                <h3>Change Supervisor</h3>
+                <div class="card">
+                    <p class="info-text">You can request to change your current supervisor. The request will be sent to FIC for approval.</p>
+                    
+                    <div class="form-group">
+                        <label for="new-supervisor-select">Select New Supervisor:</label>
+                        <select id="new-supervisor-select">
+                            <option value="">Select New Supervisor</option>
+                            {% for supervisor in available_supervisors %}
+                                {% if supervisor.id != group.supervisor_id %}
+                                <option value="{{ supervisor.id }}">
+                                    {{ supervisor.name }} - {{ supervisor.domain }} ({{ supervisor.school }})
+                                </option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="change-reason">Reason for Change:</label>
+                        <textarea id="change-reason" rows="3" placeholder="Please provide a reason for changing supervisor..."></textarea>
+                    </div>
+                    
+                    <button type="button" class="btn btn-warning" onclick="requestSupervisorChange()">
+                        <span class="btn-text">Request Supervisor Change</span>
+                        <span class="btn-loading hidden">Submitting...</span>
+                    </button>
+                    
+                    <!-- Pending Supervisor Change Requests -->
+                    {% set pending_change_requests = supervisor_change_requests|selectattr('status', 'equalto', 'pending')|list %}
+                    {% if pending_change_requests %}
+                    <div class="pending-requests" style="margin-top: 1.5rem;">
+                        <h4>Pending Change Requests</h4>
+                        {% for request in pending_change_requests %}
+                        <div class="request-item">
+                            <div class="request-info">
+                                <strong>Current:</strong> {{ request.current_supervisor.name }} → 
+                                <strong>New:</strong> {{ request.new_supervisor.name }}
+                                <span class="request-date">Submitted: {{ request.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+                            <span class="status-badge status-pending">{{ request.status }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Supervisor Change Request History -->
+                    {% set other_change_requests = supervisor_change_requests|rejectattr('status', 'equalto', 'pending')|list %}
+                    {% if other_change_requests %}
+                    <div class="request-history" style="margin-top: 1.5rem;">
+                        <h4>Change Request History</h4>
+                        {% for request in other_change_requests %}
+                        <div class="request-item">
+                            <div class="request-info">
+                                <strong>Current:</strong> {{ request.current_supervisor.name }} → 
+                                <strong>New:</strong> {{ request.new_supervisor.name }}
+                            </div>
+                            <span class="status-badge 
+                                {% if request.status == 'approved' %}status-accepted
+                                {% elif request.status == 'rejected' %}status-rejected
+                                {% endif %}">
+                                {{ request.status }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Supervisor Request Section -->
+            {% if group and group_members|length >= 2 and not group.supervisor_id %}
+            <div class="dashboard-section">
+                <h3>Request Supervisor</h3>
+                <div class="card">
+                    <p class="info-text">You can send supervisor requests to maximum 5 supervisors. The first supervisor to accept will be assigned to your group.</p>
+                    
+                    <div class="form-group">
+                        <label for="supervisor-select">Select Supervisor:</label>
+                        <select id="supervisor-select">
+                            <option value="">Select Supervisor</option>
+                            {% for supervisor in available_supervisors %}
+                            <option value="{{ supervisor.id }}">
+                                {{ supervisor.name }} - {{ supervisor.domain }} ({{ supervisor.school }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-primary" onclick="requestSupervisor()" style="margin-top: 5px;">
+                            <span class="btn-text">Send Request</span>
+                            <span class="btn-loading hidden">Sending...</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Pending Supervisor Requests -->
+                    {% set pending_requests = group.supervisor_requests|selectattr('status', 'equalto', 'pending')|list %}
+                    {% if pending_requests %}
+                    <div class="pending-requests">
+                        <h4>Pending Requests</h4>
+                        {% for request in pending_requests %}
+                        <div class="request-item">
+                            <div class="request-info">
+                                <strong>{{ request.supervisor.name }}</strong>
+                                <span class="request-domain">({{ request.supervisor.domain }})</span>
+                                <span class="request-date">Sent: {{ request.sent_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+                            <span class="status-badge status-pending">{{ request.status }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Request History -->
+                    {% set other_requests = group.supervisor_requests|rejectattr('status', 'equalto', 'pending')|list %}
+                    {% if other_requests %}
+                    <div class="request-history">
+                        <h4>Request History</h4>
+                        {% for request in other_requests %}
+                        <div class="request-item">
+                            <div class="request-info">
+                                <strong>{{ request.supervisor.name }}</strong>
+                                <span class="request-domain">({{ request.supervisor.domain }})</span>
+                            </div>
+                            <span class="status-badge 
+                                {% if request.status == 'accepted' %}status-accepted
+                                {% elif request.status == 'rejected' %}status-rejected
+                                {% endif %}">
+                                {{ request.status }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Current Supervisor Information -->
+            {% if group and group.supervisor_id %}
+            <div class="dashboard-section">
+                <h3>Supervisor Information</h3>
+                <div class="card">
+                    <div class="supervisor-info">
+                        <div class="info-row">
+                            <strong>Name:</strong> {{ group.supervisor.name }}
+                        </div>
+                        <div class="info-row">
+                            <strong>Domain:</strong> {{ group.supervisor.domain }}
+                        </div>
+                        <div class="info-row">
+                            <strong>School:</strong> {{ group.supervisor.school }}
+                        </div>
+                        <div class="info-row">
+                            <strong>Email:</strong> {{ group.supervisor.user.email }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Invitations -->
+            <div class="dashboard-section">
+                <h3>Group Invitations</h3>
+                {% if invites %}
+                    <div class="invitations-list">
+                        {% for invite in invites %}
+                        <div class="card invitation-card">
+                            <div class="invitation-header">
+                                <h4>Invitation from {{ invite.sender.name }}</h4>
+                                <span class="invitation-date">Sent: {{ invite.sent_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+                            <div class="invitation-details">
+                                <p><strong>Roll Number:</strong> {{ invite.sender.roll_number }}</p>
+                                <p><strong>Branch:</strong> {{ invite.sender.branch }}</p>
+                                <p><strong>Year:</strong> {{ invite.sender.year }}</p>
+                            </div>
+                            <div class="invite-actions">
+                                <button class="btn btn-success respond-invite" 
+                                        data-invite-id="{{ invite.id }}" 
+                                        data-action="accept">
+                                    <span class="btn-text">Accept Invite</span>
+                                    <span class="btn-loading hidden">Processing...</span>
+                                </button>
+                                <button class="btn btn-danger respond-invite" 
+                                        data-invite-id="{{ invite.id }}" 
+                                        data-action="reject">
+                                    <span class="btn-text">Reject</span>
+                                    <span class="btn-loading hidden">Processing...</span>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="card">
+                        <p class="no-invitations">No pending invitations.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Find Team Members -->
+            {% if group and group_members|length < 4 %}
+            <div class="dashboard-section">
+                <h3>Add Team Members</h3>
+                <div class="card">
+                    <p class="info-text">You can invite students from your same branch and year who are not in any group. Maximum 4 members per group.</p>
+                    
+                    <div class="search-section">
+                        <div class="form-group">
+                            <label for="search-student">Search by Roll Number:</label>
+                            <div class="search-container">
+                                <input type="text" id="search-student" placeholder="Enter roll number...">
+                                <button type="button" class="btn btn-secondary" onclick="searchStudent()">Search</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="available-students">
+                        <h4>Available Students ({{ available_students|length }} found)</h4>
+                        {% if available_students %}
+                            <div class="students-table-container">
+                                <table class="students-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Roll Number</th>
+                                            <th>School</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for student in available_students %}
+                                        <tr>
+                                            <td>{{ student.name }}</td>
+                                            <td>{{ student.roll_number }}</td>
+                                            <td>{{ student.school }}</td>
+                                            <td>
+                                                <button class="btn btn-primary send-invite" 
+                                                        data-receiver-id="{{ student.id }}"
+                                                        data-receiver-name="{{ student.name }}">
+                                                    <span class="btn-text">Send Invite</span>
+                                                    <span class="btn-loading hidden">Sending...</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="no-students">No available students found from your branch and year.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% elif not group %}
+            <div class="dashboard-section">
+                <h3>Find Team Members</h3>
+                <div class="card">
+                    <p class="info-text">You can invite students from your same branch and year who are not in any group.</p>
+                    
+                    <div class="search-section">
+                        <div class="form-group">
+                            <label for="search-student">Search by Roll Number:</label>
+                            <div class="search-container">
+                                <input type="text" id="search-student" placeholder="Enter roll number...">
+                                <button type="button" class="btn btn-secondary" onclick="searchStudent()">Search</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="available-students">
+                        <h4>Available Students ({{ available_students|length }} found)</h4>
+                        {% if available_students %}
+                            <div class="students-table-container">
+                                <table class="students-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Roll Number</th>
+                                            <th>School</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for student in available_students %}
+                                        <tr>
+                                            <td>{{ student.name }}</td>
+                                            <td>{{ student.roll_number }}</td>
+                                            <td>{{ student.school }}</td>
+                                            <td>
+                                                <button class="btn btn-primary send-invite" 
+                                                        data-receiver-id="{{ student.id }}"
+                                                        data-receiver-name="{{ student.name }}">
+                                                    <span class="btn-text">Send Invite</span>
+                                                    <span class="btn-loading hidden">Sending...</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="no-students">No available students found from your branch and year.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Marks Section -->
+            {% if group and student.marks %}
+            <div class="dashboard-section">
+                <h3>Your Marks</h3>
+                <div class="marks-container">
+                    {% for mark in student.marks %}
+                    <div class="card marks-card">
+                        <div class="marks-header">
+                            <h4>Evaluation Results</h4>
+                            <span class="marks-date">Given on: {{ mark.given_at.strftime('%Y-%m-%d') }}</span>
+                        </div>
+                        <div class="marks-details">
+                            <div class="marks-grid">
+                                <div class="marks-item">
+                                    <span class="marks-label">Presentation:</span>
+                                    <span class="marks-value">{{ mark.presentation }}/10</span>
+                                </div>
+                                <div class="marks-item">
+                                    <span class="marks-label">Documents:</span>
+                                    <span class="marks-value">{{ mark.documents }}/10</span>
+                                </div>
+                                <div class="marks-item">
+                                    <span class="marks-label">Collaboration:</span>
+                                    <span class="marks-value">{{ mark.collaboration }}/10</span>
+                                </div>
+                                <div class="marks-item total-marks">
+                                    <span class="marks-label">Total:</span>
+                                    <span class="marks-value">{{ mark.total }}/30</span>
+                                </div>
+                            </div>
+                            <div class="marks-giver">
+                                <small>Evaluated by: {{ mark.supervisor_given.name }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% elif group %}
+            <div class="dashboard-section">
+                <h3>Your Marks</h3>
+                <div class="card">
+                    <p class="no-marks">No marks assigned yet by your supervisor.</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Panel Information (if available) -->
+            {% if group and group.panels %}
+            <div class="dashboard-section">
+                <h3>Evaluation Panel</h3>
+                <div class="card">
+                    <p class="info-text">Your project evaluation panel has been assigned.</p>
+                    <div class="panel-info">
+                        <p><strong>Panel assigned by:</strong> {{ group.panels[0].fic.name }}</p>
+                        <p><strong>Assigned on:</strong> {{ group.panels[0].created_at.strftime('%Y-%m-%d') }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <footer>
+            <p>&copy; 2023 Project Management System. All rights reserved.</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // Initialize dashboard functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Student dashboard initialized');
+            
+            // Set up invite buttons
+            const sendInviteButtons = document.querySelectorAll('.send-invite');
+            sendInviteButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const receiverId = this.dataset.receiverId;
+                    const receiverName = this.dataset.receiverName;
+                    sendInvite(receiverId, receiverName);
+                });
+            });
+            
+            // Set up invite response buttons
+            const respondInviteButtons = document.querySelectorAll('.respond-invite');
+            respondInviteButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const inviteId = this.dataset.inviteId;
+                    const action = this.dataset.action;
+                    const button = this;
+                    respondToInvite(inviteId, action, button);
+                });
+            });
+            
+            // Set up search functionality
+            const searchInput = document.getElementById('search-student');
+            if (searchInput) {
+                searchInput.addEventListener('input', debounce(searchStudent, 300));
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        searchStudent();
+                    }
+                });
+            }
+            
+            // Add real-time validation for project title and document link
+            const projectTitleInput = document.getElementById('project-title');
+            if (projectTitleInput) {
+                projectTitleInput.addEventListener('input', function() {
+                    validateProjectTitle(this.value);
+                });
+            }
+            
+            const documentLinkInput = document.getElementById('document-link');
+            if (documentLinkInput) {
+                documentLinkInput.addEventListener('input', function() {
+                    validateDocumentLink(this.value);
+                });
+            }
+        });
+        
+        function validateProjectTitle(title) {
+            const button = document.querySelector('button[onclick="updateProjectTitle()"]');
+            if (title.trim().length < 5) {
+                button.disabled = true;
+                button.title = 'Project title must be at least 5 characters long';
+            } else {
+                button.disabled = false;
+                button.title = '';
+            }
+        }
+        
+        function validateDocumentLink(link) {
+            const button = document.querySelector('button[onclick="updateDocumentLink()"]');
+            if (link && !isValidUrl(link)) {
+                button.disabled = true;
+                button.title = 'Please enter a valid URL';
+            } else {
+                button.disabled = false;
+                button.title = '';
+            }
+        }
+        
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+        
+        function searchStudent() {
+            const searchTerm = document.getElementById('search-student').value.trim().toLowerCase();
+            const tableRows = document.querySelectorAll('.students-table tbody tr');
+            let visibleCount = 0;
+            
+            tableRows.forEach(row => {
+                const rollNumber = row.cells[1].textContent.toLowerCase();
+                const name = row.cells[0].textContent.toLowerCase();
+                
+                if (rollNumber.includes(searchTerm) || name.includes(searchTerm) || !searchTerm) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update the count display
+            const countElement = document.querySelector('.available-students h4');
+            if (countElement) {
+                countElement.textContent = `Available Students (${visibleCount} found)`;
+            }
+        }
+        
+        function sendInvite(receiverId, receiverName) {
+            const button = document.querySelector(`.send-invite[data-receiver-id="${receiverId}"]`);
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/send_invite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ receiver_id: receiverId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading state
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                
+                if (data.success) {
+                    showNotification(`Invite sent to ${receiverName} successfully!`, 'success');
+                    // Remove the row or disable the button
+                    button.textContent = 'Invite Sent';
+                    button.disabled = true;
+                    button.classList.remove('btn-primary');
+                    button.classList.add('btn-secondary');
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function respondToInvite(inviteId, action, button) {
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/respond_invite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    invite_id: inviteId,
+                    action: action
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showNotification(data.message, 'error');
+                    btnText.classList.remove('hidden');
+                    btnLoading.classList.add('hidden');
+                    button.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function leaveGroup() {
+            if (!confirm('Are you sure you want to leave the group? This action cannot be undone.')) {
+                return;
+            }
+            
+            const button = document.querySelector('button[onclick="leaveGroup()"]');
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/leave_group', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showNotification(data.message, 'error');
+                    btnText.classList.remove('hidden');
+                    btnLoading.classList.add('hidden');
+                    button.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function requestSupervisorChange() {
+            const newSupervisorId = document.getElementById('new-supervisor-select').value;
+            const reason = document.getElementById('change-reason').value.trim();
+            
+            if (!newSupervisorId) {
+                showNotification('Please select a new supervisor', 'error');
+                return;
+            }
+            
+            if (!reason) {
+                showNotification('Please provide a reason for changing supervisor', 'error');
+                return;
+            }
+            
+            const button = document.querySelector('button[onclick="requestSupervisorChange()"]');
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/request_supervisor_change', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    new_supervisor_id: newSupervisorId,
+                    reason: reason
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading state
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Reset form and reload after delay
+                    document.getElementById('new-supervisor-select').value = '';
+                    document.getElementById('change-reason').value = '';
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function updateProjectTitle() {
+            const titleInput = document.getElementById('project-title');
+            const title = titleInput.value.trim();
+            const button = document.querySelector('button[onclick="updateProjectTitle()"]');
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            if (!title) {
+                showNotification('Please enter a project title', 'error');
+                return;
+            }
+            
+            if (title.length < 5) {
+                showNotification('Project title must be at least 5 characters long', 'error');
+                return;
+            }
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/update_project_title', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    },
+                body: JSON.stringify({ title: title })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading state
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Update the display
+                    document.getElementById('project-title-display').textContent = title;
+                    document.getElementById('project-title-display').classList.remove('not-set');
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function updateDocumentLink() {
+            const linkInput = document.getElementById('document-link');
+            const link = linkInput.value.trim();
+            const button = document.querySelector('button[onclick="updateDocumentLink()"]');
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            if (!link) {
+                showNotification('Please enter a document link', 'error');
+                return;
+            }
+            
+            if (!isValidUrl(link)) {
+                showNotification('Please enter a valid URL', 'error');
+                return;
+            }
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/update_document_link', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ link: link })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading state
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Update the display
+                    const displayElement = document.querySelector('.document-link');
+                    if (displayElement) {
+                        displayElement.textContent = link;
+                        displayElement.href = link;
+                    }
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function requestSupervisor() {
+            const supervisorSelect = document.getElementById('supervisor-select');
+            const supervisorId = supervisorSelect.value;
+            const button = document.querySelector('button[onclick="requestSupervisor()"]');
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            if (!supervisorId) {
+                showNotification('Please select a supervisor', 'error');
+                return;
+            }
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/request_supervisor', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ supervisor_id: supervisorId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading state
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Reset select and reload after delay
+                    supervisorSelect.value = '';
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(notification => notification.remove());
+            
+            // Create new notification
+            const notification = document.createElement('div');
+            notification.className = `notification alert alert-${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                min-width: 300px;
+                max-width: 500px;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            notification.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            style="background: none; border: none; font-size: 18px; cursor: pointer; color: inherit;">
+                        ×
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        // Add CSS for animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            
+            .hidden { display: none; }
+            
+            .notification-card {
+                margin-bottom: 1rem;
+                border-left: 4px solid #3498db;
+            }
+            
+            .notification-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }
+            
+            .notification-date {
+                color: #7f8c8d;
+                font-size: 0.9em;
+            }
+            
+            .group-name { 
+                font-weight: bold; 
+                color: #2c3e50;
+                font-size: 1.1em;
+            }
+            
+            .not-set { 
+                color: #7f8c8d; 
+                font-style: italic;
+            }
+            
+            .info-row { 
+                margin-bottom: 0.5rem; 
+                display: flex;
+                align-items: center;
+            }
+            
+            .info-row strong { 
+                min-width: 120px; 
+            }
+            
+            .members-list {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .member-item {
+                padding: 0.75rem;
+                border: 1px solid #ecf0f1;
+                border-radius: 6px;
+                background: #f8f9fa;
+            }
+            
+            .member-item.current-user {
+                background: #e3f2fd;
+                border-color: #2196f3;
+            }
+            
+            .member-info {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .roll-number {
+                color: #7f8c8d;
+                font-size: 0.9em;
+            }
+            
+            .badge-you {
+                background: #2196f3;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 0.8em;
+                font-weight: bold;
+            }
+            
+            .search-container {
+                display: flex;
+                gap: 0.5rem;
+            }
+            
+            .search-container input {
+                flex: 1;
+            }
+            
+            .students-table-container {
+                overflow-x: auto;
+            }
+            
+            .students-table {
+                width: 100%;
+                margin-top: 1rem;
+            }
+            
+            .invitation-card {
+                margin-bottom: 1rem;
+            }
+            
+            .invitation-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }
+            
+            .invitation-date {
+                color: #7f8c8d;
+                font-size: 0.9em;
+            }
+            
+            .invitation-details {
+                margin-bottom: 1rem;
+            }
+            
+            .invite-actions {
+                display: flex;
+                gap: 0.5rem;
+            }
+            
+            .request-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.75rem;
+                border: 1px solid #ecf0f1;
+                border-radius: 6px;
+                margin-bottom: 0.5rem;
+            }
+            
+            .request-info {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+            
+            .request-domain {
+                color: #7f8c8d;
+                font-size: 0.9em;
+            }
+            
+            .request-date {
+                color: #95a5a6;
+                font-size: 0.8em;
+            }
+            
+            .marks-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .marks-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.5rem;
+                background: #f8f9fa;
+                border-radius: 4px;
+            }
+            
+            .total-marks {
+                grid-column: span 2;
+                background: #e3f2fd;
+                font-weight: bold;
+            }
+            
+            .marks-label {
+                font-weight: 500;
+            }
+            
+            .marks-value {
+                font-weight: bold;
+                color: #2c3e50;
+            }
+            
+            .marks-giver {
+                text-align: center;
+                color: #7f8c8d;
+                font-style: italic;
+            }
+            
+            .no-group-message, .no-invitations, .no-students, .no-marks {
+                text-align: center;
+                color: #7f8c8d;
+                padding: 2rem;
+            }
+            
+            .group-rules {
+                margin-top: 1rem;
+                text-align: left;
+            }
+            
+            .group-rules ul {
+                margin-left: 1.5rem;
+                margin-top: 0.5rem;
+            }
+            
+            .group-rules li {
+                margin-bottom: 0.25rem;
+            }
+            
+            .info-text {
+                color: #5a6c7d;
+                margin-bottom: 1rem;
+                font-style: italic;
+            }
+            
+            .pending-requests, .request-history {
+                margin-top: 1.5rem;
+            }
+            
+            .pending-requests h4, .request-history h4 {
+                color: #2c3e50;
+                margin-bottom: 1rem;
+                border-bottom: 1px solid #ecf0f1;
+                padding-bottom: 0.5rem;
+            }
+            
+            .warning-text {
+                color: #e74c3c;
+                font-size: 0.9em;
+                margin-top: 0.5rem;
+            }
+            
+            @media (max-width: 768px) {
+                .info-row {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                
+                .info-row strong {
+                    min-width: auto;
+                    margin-bottom: 0.25rem;
+                }
+                
+                .invitation-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                }
+                
+                .invite-actions {
+                    flex-direction: column;
+                }
+                
+                .request-item {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                }
+                
+                .marks-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .total-marks {
+                    grid-column: span 1;
+                }
+                
+                .search-container {
+                    flex-direction: column;
+                }
+                
+                .notification-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

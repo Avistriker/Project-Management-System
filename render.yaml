@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: project-management-system
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MYSQL_HOST
+        fromDatabase:
+          name: project_management_db
+          property: host
+      - key: MYSQL_USER
+        fromDatabase:
+          name: project_management_db
+          property: user
+      - key: MYSQL_PASSWORD
+        fromDatabase:
+          name: project_management_db
+          property: password
+      - key: MYSQL_DB
+        fromDatabase:
+          name: project_management_db
+          property: database
+      - key: MYSQL_PORT
+        value: "3306"
+      - key: MAIL_SERVER
+        value: "smtp.gmail.com"
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USE_TLS
+        value: "true"
+      - key: MAIL_USERNAME
+        value: "your-email@gmail.com"
+      - key: MAIL_PASSWORD
+        value: "your-app-password"
+
+databases:
+  - name: project_management_db
+    plan: free
+    databaseName: project_management_system
+    user: project_management_user

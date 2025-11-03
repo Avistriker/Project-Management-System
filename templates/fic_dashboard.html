@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIC Dashboard - Project Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="dashboard-header">
+                <div>
+                    <h1>FIC Dashboard</h1>
+                    <p>Welcome, {{ fic.name }} ({{ fic.school }})</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+                </div>
+            </div>
+        </header>
+        
+        <div class="main-content">
+            <!-- Notifications Section -->
+            <div class="dashboard-section">
+                <h3>Send Notification</h3>
+                <div class="card">
+                    <div class="form-group">
+                        <label for="notification-title">Title:</label>
+                        <input type="text" id="notification-title" placeholder="Enter notification title">
+                    </div>
+                    <div class="form-group">
+                        <label for="notification-message">Message:</label>
+                        <textarea id="notification-message" rows="4" placeholder="Enter notification message"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="notification-target">Target Audience:</label>
+                        <select id="notification-target">
+                            <option value="all">All Students and Supervisors</option>
+                            <option value="students">Students Only</option>
+                            <option value="supervisors">Supervisors Only</option>
+                            <option value="specific_branch">Specific Branch</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="branch-selection" style="display: none;">
+                        <label for="notification-branch">Select Branch:</label>
+                        <select id="notification-branch">
+                            <option value="">Select Branch</option>
+                            <option value="CS">Computer Science - CS</option>
+                            <option value="ECS">Electronics and Computer Science - ECS</option>
+                            <option value="IT">Information Technology - IT</option>
+                            <option value="ETC">Electronics and Telecommunication - ETC</option>
+                            <option value="Civil">Civil</option>
+                            <option value="Mech">Mechanical - Mech</option>
+                            <option value="Aerospace">Aerospace</option>
+                            <option value="EE">Electrical and Electronics - EE</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="sendNotification()">
+                        <span class="btn-text">Send Notification</span>
+                        <span class="btn-loading hidden">Sending...</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sent Notifications -->
+            {% if notifications %}
+            <div class="dashboard-section">
+                <h3>Sent Notifications</h3>
+                {% for notification in notifications %}
+                <div class="card notification-card">
+                    <div class="notification-header">
+                        <h4>{{ notification.title }}</h4>
+                        <span class="notification-date">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    <p>{{ notification.message }}</p>
+                    <div class="notification-target">
+                        <small>Target: {{ notification.target_type }}{% if notification.target_branch %} ({{ notification.target_branch }}){% endif %}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Supervisor Change Requests -->
+            {% if supervisor_change_requests %}
+            <div class="dashboard-section">
+                <h3>Pending Supervisor Change Requests</h3>
+                {% for change_request in supervisor_change_requests %}
+                <div class="card">
+                    <div class="card-header">Change Request for {{ change_request.group.name }}</div>
+                    <div class="change-request-details">
+                        <div class="info-row">
+                            <strong>Current Supervisor:</strong> {{ change_request.current_supervisor.name }}
+                        </div>
+                        <div class="info-row">
+                            <strong>Requested Supervisor:</strong> {{ change_request.new_supervisor.name }}
+                        </div>
+                        <div class="info-row">
+                            <strong>Group Members:</strong> 
+                            {% for student in change_request.group.students %}
+                                {{ student.name }}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="info-row">
+                            <strong>Reason:</strong> {{ change_request.reason or 'No reason provided' }}
+                        </div>
+                        <div class="info-row">
+                            <strong>Submitted:</strong> {{ change_request.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        </div>
+                    </div>
+                    <div class="request-actions">
+                        <button class="btn btn-success respond-change-request" 
+                                data-request-id="{{ change_request.id }}" 
+                                data-action="approve">
+                            <span class="btn-text">Approve</span>
+                            <span class="btn-loading hidden">Processing...</span>
+                        </button>
+                        <button class="btn btn-danger respond-change-request" 
+                                data-request-id="{{ change_request.id }}" 
+                                data-action="reject">
+                            <span class="btn-text">Reject</span>
+                            <span class="btn-loading hidden">Processing...</span>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- School Groups -->
+            <div class="dashboard-section">
+                <h3>{{ fic.school }} - Student Groups</h3>
+                
+                <!-- Download Group Details -->
+                <div class="download-section" style="margin-bottom: 1rem;">
+                    <label><strong>Download Group Details:</strong></label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <select id="download-branch">
+                            <option value="">All Branches</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch }}">{{ branch }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-primary" onclick="downloadGroupDetails()">
+                            <span class="btn-text">Download CSV</span>
+                            <span class="btn-loading hidden">Downloading...</span>
+                        </button>
+                    </div>
+                </div>
+                
+                {% if school_groups %}
+                    {% for group in school_groups %}
+                    <div class="card">
+                        <div class="card-header">{{ group.name }}</div>
+                        <p><strong>Project Title:</strong> {{ group.project_title or 'Not set' }}</p>
+                        <p><strong>Branch:</strong> {{ group.branch }}</p>
+                        <p><strong>Year:</strong> {{ group.year }}</p>
+                        <p><strong>Supervisor:</strong> {{ group.supervisor.name if group.supervisor else 'Not assigned' }}</p>
+                        <p><strong>Members:</strong> 
+                            {% for student in group.students %}
+                                {{ student.name }}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </p>
+                        
+                        <!-- Panel Assignment -->
+                        <div class="panel-assignment">
+                            <h4>Panel Assignment</h4>
+                            {% if group.panels %}
+                                <p><strong>Panel Members:</strong></p>
+                                <ul>
+                                    {% for panel in group.panels %}
+                                        {% for member in panel.members %}
+                                            <li>
+                                                {{ member.supervisor.name }}
+                                                {% if member.supervisor.id == group.supervisor_id %}
+                                                    <span class="badge-supervisor">(Group Supervisor)</span>
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>No panel assigned yet.</p>
+                                <div class="form-group">
+                                    <label>Select 3 Panel Members (can include group supervisor):</label>
+                                    <div class="panel-members-selection">
+                                        {% for supervisor in school_supervisors %}
+                                        <div>
+                                            <input type="checkbox" class="panel-checkbox-{{ group.id }}" 
+                                                   value="{{ supervisor.id }}" id="supervisor-{{ supervisor.id }}-{{ group.id }}">
+                                            <label for="supervisor-{{ supervisor.id }}-{{ group.id }}">
+                                                {{ supervisor.name }} ({{ supervisor.domain }})
+                                                {% if supervisor.id == group.supervisor_id %}
+                                                    <strong>- Group Supervisor</strong>
+                                                {% endif %}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" onclick="createPanel({{ group.id }})">
+                                    <span class="btn-text">Create Panel</span>
+                                    <span class="btn-loading hidden">Creating...</span>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No groups found in your school.</p>
+                {% endif %}
+            </div>
+            
+            <!-- School Supervisors -->
+            <div class="dashboard-section">
+                <h3>{{ fic.school }} - Supervisors</h3>
+                {% if school_supervisors %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Domain</th>
+                                <th>Groups Supervised</th>
+                                <th>Panel Memberships</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for supervisor in school_supervisors %}
+                            <tr>
+                                <td>{{ supervisor.name }}</td>
+                                <td>{{ supervisor.user.email }}</td>
+                                <td>{{ supervisor.domain }}</td>
+                                <td>{{ supervisor.supervised_groups|length }}/3</td>
+                                <td>{{ supervisor.panel_memberships|length }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No supervisors found in your school.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // Initialize dashboard functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('FIC dashboard initialized');
+            
+            // Show/hide branch selection based on target type
+            const targetSelect = document.getElementById('notification-target');
+            const branchSelection = document.getElementById('branch-selection');
+            
+            targetSelect.addEventListener('change', function() {
+                if (this.value === 'specific_branch') {
+                    branchSelection.style.display = 'block';
+                } else {
+                    branchSelection.style.display = 'none';
+                }
+            });
+            
+            // Set up supervisor change request buttons
+            const respondChangeRequestButtons = document.querySelectorAll('.respond-change-request');
+            respondChangeRequestButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const requestId = this.dataset.requestId;
+                    const action = this.dataset.action;
+                    const button = this;
+                    respondToSupervisorChangeRequest(requestId, action, button);
+                });
+            });
+        });
+        
+        function sendNotification() {
+            const title = document.getElementById('notification-title').value.trim();
+            const message = document.getElementById('notification-message').value.trim();
+            const targetType = document.getElementById('notification-target').value;
+            const targetBranch = document.getElementById('notification-branch').value;
+            
+            if (!title || !message) {
+                showNotification('Title and message are required', 'error');
+                return;
+            }
+            
+            if (targetType === 'specific_branch' && !targetBranch) {
+                showNotification('Please select a branch for specific branch notification', 'error');
+                return;
+            }
+            
+            const button = document.querySelector('button[onclick="sendNotification()"]');
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/send_notification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    title: title,
+                    message: message,
+                    target_type: targetType,
+                    target_branch: targetBranch
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading state
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    // Clear form and reload after delay
+                    document.getElementById('notification-title').value = '';
+                    document.getElementById('notification-message').value = '';
+                    document.getElementById('notification-target').value = 'all';
+                    document.getElementById('branch-selection').style.display = 'none';
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function respondToSupervisorChangeRequest(requestId, action, button) {
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/respond_supervisor_change_request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    request_id: requestId,
+                    action: action
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showNotification(data.message, 'error');
+                    btnText.classList.remove('hidden');
+                    btnLoading.classList.add('hidden');
+                    button.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function createPanel(groupId) {
+            const checkboxes = document.querySelectorAll(`.panel-checkbox-${groupId}:checked`);
+            const supervisorIds = Array.from(checkboxes).map(checkbox => checkbox.value);
+            
+            if (supervisorIds.length !== 3) {
+                showNotification('Please select exactly 3 panel members', 'error');
+                return;
+            }
+            
+            const button = document.querySelector(`button[onclick="createPanel(${groupId})"]`);
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            fetch('/create_panel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    group_id: groupId,
+                    supervisor_ids: supervisorIds
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading state
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+                showNotification('Network error occurred', 'error');
+            });
+        }
+        
+        function downloadGroupDetails() {
+            const branch = document.getElementById('download-branch').value;
+            
+            const button = document.querySelector('button[onclick="downloadGroupDetails()"]');
+            const btnText = button.querySelector('.btn-text');
+            const btnLoading = button.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            button.disabled = true;
+            
+            // Construct download URL
+            let url = '/download_group_details';
+            if (branch) {
+                url += `?branch=${encodeURIComponent(branch)}`;
+            }
+            
+            // Trigger download
+            window.location.href = url;
+            
+            // Hide loading state after a delay
+            setTimeout(() => {
+                btnText.classList.remove('hidden');
+                btnLoading.classList.add('hidden');
+                button.disabled = false;
+            }, 2000);
+        }
+        
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(notification => notification.remove());
+            
+            // Create new notification
+            const notification = document.createElement('div');
+            notification.className = `notification alert alert-${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                min-width: 300px;
+                max-width: 500px;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            notification.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            style="background: none; border: none; font-size: 18px; cursor: pointer; color: inherit;">
+                        ×
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        // Add CSS for animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            
+            .hidden { display: none; }
+            
+            .notification-card {
+                margin-bottom: 1rem;
+                border-left: 4px solid #3498db;
+            }
+            
+            .notification-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }
+            
+            .notification-date {
+                color: #7f8c8d;
+                font-size: 0.9em;
+            }
+            
+            .notification-target {
+                margin-top: 0.5rem;
+                color: #7f8c8d;
+                font-style: italic;
+            }
+            
+            .change-request-details {
+                margin-bottom: 1rem;
+            }
+            
+            .info-row {
+                margin-bottom: 0.5rem;
+                display: flex;
+                align-items: center;
+            }
+            
+            .info-row strong {
+                min-width: 150px;
+            }
+            
+            .badge-supervisor {
+                background: #27ae60;
+                color: white;
+                padding: 2px 6px;
+                border-radius: 8px;
+                font-size: 0.8em;
+                margin-left: 0.5rem;
+            }
+            
+            .panel-members-selection {
+                max-height: 200px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                padding: 0.5rem;
+                border-radius: 4px;
+                margin-top: 0.5rem;
+            }
+            
+            .download-section {
+                background: #f8f9fa;
+                padding: 1rem;
+                border-radius: 6px;
+                margin-bottom: 1rem;
+            }
+            
+            @media (max-width: 768px) {
+                .info-row {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                
+                .info-row strong {
+                    min-width: auto;
+                    margin-bottom: 0.25rem;
+                }
+                
+                .notification-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

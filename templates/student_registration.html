@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration - Project Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Project Management System</h1>
+            <p>Student Registration</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="auth-form">
+                <h2>Student Registration</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="name">Full Name:</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required>
+                        <button type="button" class="btn btn-secondary" onclick="sendOTP()" style="margin-top: 5px;">Send OTP</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="otp">OTP:</label>
+                        <input type="text" id="otp" name="otp" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="roll_number">Roll Number:</label>
+                        <input type="text" id="roll_number" name="roll_number" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="year">Year:</label>
+                        <select id="year" name="year" required>
+                            <option value="">Select Year</option>
+                            <option value="Third">Third Year</option>
+                            <option value="Fourth">Fourth Year</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="school">School:</label>
+                        <select id="school" name="school" required>
+                            <option value="">Select School</option>
+                            <option value="School of Electronics">School of Electronics</option>
+                            <option value="School of Computer Science">School of Computer Science</option>
+                            <option value="School of Electrical">School of Electrical</option>
+                            <option value="School of Civil">School of Civil</option>
+                            <option value="School of Mechanical">School of Mechanical</option>
+                            <option value="School of IT">School of IT</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="branch">Branch:</label>
+                        <select id="branch" name="branch" required>
+                            <option value="">Select Branch</option>
+                            <option value="CS">Computer Science - CS</option>
+                            <option value="ECS">Electronics and Computer Science - ECS</option>
+                            <option value="IT">Information Technology - IT</option>
+                            <option value="ETC">Electronics and Telecommunication - ETC</option>
+                            <option value="Civil">Civil</option>
+                            <option value="Mech">Mechanical - Mech</option>
+                            <option value="Aerospace">Aerospace</option>
+                            <option value="EE">Electrical and Electronics - EE</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password:</label>
+                        <input type="password" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+                
+                <div class="auth-links">
+                    <p><a href="{{ url_for('register') }}">Back to Role Selection</a></p>
+                    <p><a href="{{ url_for('index') }}">Back to Home</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        function sendOTP() {
+            const email = document.getElementById('email').value;
+            if (!email) {
+                alert('Please enter your email first');
+                return;
+            }
+            
+            fetch('/send_otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: email })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Network error occurred');
+            });
+        }
+    </script>
+</body>
+</html>
