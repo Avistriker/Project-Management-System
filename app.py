@@ -11,6 +11,8 @@ import csv
 import io
 from io import StringIO
 import urllib.parse
+import time
+import random
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +31,14 @@ if db_type == 'mysql':
     db_port = os.getenv('MYSQL_PORT', '3306')
     db_name = os.getenv('MYSQL_DB', 'project_management_system')
     app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': 5,
+        'pool_recycle': 3600,
+        'pool_pre_ping': True,
+        'pool_use_lifo': True,
+        'max_overflow': 2,
+        'pool_timeout': 30
+    }
 else:
     # PostgreSQL configuration for Supabase
     db_user = os.getenv('DB_USER', 'postgres')
@@ -40,19 +50,32 @@ else:
     # URL encode password to handle special characters
     encoded_password = urllib.parse.quote_plus(db_password)
     app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql+psycopg2://{db_user}:{encoded_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
+    
+    # Connection pool settings for PostgreSQL/Supabase
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': 3,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+        'pool_use_lifo': True,
+        'max_overflow': 2,
+        'pool_timeout': 10,
+        'echo_pool': False
+    }
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300
-}
 
 # Email configuration
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
+app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
+app.config['MAIL_MAX_EMAILS'] = None
+app.config['MAIL_ASCII_ATTACHMENTS'] = False
+app.config['MAIL_SUPPRESS_SEND'] = False
+app.config['TESTING'] = False
 
 db = SQLAlchemy(app)
 mail = Mail(app)
@@ -61,6 +84,22 @@ mail = Mail(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Teardown request to close database connections
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    """Close database session after each request"""
+    db.session.remove()
+
+# Health check endpoint for Render
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render"""
+    try:
+        db.session.execute('SELECT 1')
+        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
 
 def get_utc_now():
     """Get current UTC time as timezone-aware datetime"""
@@ -642,33 +681,70 @@ def send_otp():
     if not email:
         return jsonify({'success': False, 'message': 'Email is required'})
     
+    # Validate email format
+    import re
+    if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        return jsonify({'success': False, 'message': 'Invalid email format'})
+    
     otp_code = ''.join(secrets.choice('0123456789') for _ in range(6))
     expires_at = get_utc_now() + timedelta(minutes=10)
     
-    otp = OTP(
-        email=email, 
-        otp=otp_code, 
-        purpose=purpose,
-        expires_at=expires_at
-    )
-    db.session.add(otp)
-    db.session.commit()
-    
     try:
+        # Store OTP in database
+        otp = OTP(
+            email=email, 
+            otp=otp_code, 
+            purpose=purpose,
+            expires_at=expires_at
+        )
+        db.session.add(otp)
+        db.session.commit()
+        
+        # Send email
         if purpose == 'password_reset':
             subject = 'Password Reset OTP - Project Management System'
-            body = f'Your OTP for password reset is: {otp_code}\n\nThis OTP will expire in 10 minutes.'
+            body = f'''Your OTP for password reset is: {otp_code}
+
+This OTP will expire in 10 minutes.
+
+If you did not request this, please ignore this email.
+'''
         else:
             subject = 'Your OTP for Registration - Project Management System'
-            body = f'Your OTP for registration is: {otp_code}\n\nThis OTP will expire in 10 minutes.'
+            body = f'''Welcome to Project Management System!
+
+Your OTP for registration is: {otp_code}
+
+This OTP will expire in 10 minutes.
+
+Please enter this OTP to complete your registration.
+'''
         
-        msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[email])
+        msg = Message(
+            subject=subject,
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[email]
+        )
         msg.body = body
+        
+        # Try to send email with timeout
+        socket.setdefaulttimeout(30)
         mail.send(msg)
-        return jsonify({'success': True, 'message': 'OTP sent successfully'})
+        
+        return jsonify({'success': True, 'message': 'OTP sent successfully! Please check your email.'})
+        
     except Exception as e:
-        print(f"Email error: {e}")
-        return jsonify({'success': False, 'message': 'Failed to send OTP'})
+        print(f"Email error details: {str(e)}")
+        db.session.rollback()
+        
+        # Return more specific error message
+        error_msg = str(e)
+        if "Authentication" in error_msg or "login" in error_msg.lower():
+            return jsonify({'success': False, 'message': 'Email service authentication failed. Please contact support.'})
+        elif "Timeout" in error_msg:
+            return jsonify({'success': False, 'message': 'Email service timeout. Please try again.'})
+        else:
+            return jsonify({'success': False, 'message': f'Failed to send OTP: {error_msg[:100]}'})
 
 @app.route('/student/<int:student_id>/details')
 @login_required
