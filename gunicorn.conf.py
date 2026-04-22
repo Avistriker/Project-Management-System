@@ -1,5 +1,5 @@
 # gunicorn.conf.py
-# Gunicorn configuration for Render deployment
+# Gunicorn configuration for Render deployment with Supabase
 
 import os
 import multiprocessing
@@ -12,6 +12,9 @@ import multiprocessing
 port = os.getenv('PORT', '10000')
 bind = f"0.0.0.0:{port}"
 
+# Backlog of pending connections
+backlog = 2048
+
 # ============================================
 # Worker Processes
 # ============================================
@@ -21,27 +24,26 @@ bind = f"0.0.0.0:{port}"
 workers = 1
 
 # Number of threads per worker
-threads = 2
+threads = 1
 
 # Worker class to use
 worker_class = 'sync'
 
 # Maximum number of requests a worker will process before restarting
-max_requests = 1000
+max_requests = 200
 max_requests_jitter = 50
 
-# ============================================
-# Timeout Settings
-# ============================================
-
-# Worker timeout in seconds (Render free tier may need higher timeout)
+# Worker timeout in seconds
 timeout = 120
 
 # Graceful timeout for worker shutdown
 graceful_timeout = 30
 
 # Keep-alive connections
-keepalive = 5
+keepalive = 2
+
+# Maximum number of simultaneous clients per worker
+worker_connections = 1000
 
 # ============================================
 # Logging Configuration
@@ -90,12 +92,43 @@ reload = False
 worker_tmp_dir = '/dev/shm'
 
 # ============================================
-# Preload Application (Optional)
+# Preload Application
 # ============================================
 
 # Preload the application before forking workers
-# Set to True to save memory, but may cause issues with database connections
+# Set to False for better database connection handling
 preload_app = False
+
+# ============================================
+# Daemonize
+# ============================================
+
+# Whether to daemonize the Gunicorn process
+daemon = False
+
+# ============================================
+# PID File
+# ============================================
+
+# Path to PID file
+pidfile = None
+
+# ============================================
+# Umask
+# ============================================
+
+# Umask to use when creating files
+umask = 0
+
+# ============================================
+# User and Group
+# ============================================
+
+# Switch to this user after binding
+user = None
+
+# Switch to this group after binding
+group = None
 
 # ============================================
 # Callback Functions
@@ -106,6 +139,10 @@ def on_starting(server):
     server.log.info("=" * 60)
     server.log.info("Starting Project Management System - Gunicorn Server")
     server.log.info("=" * 60)
+    server.log.info(f"Binding to: {bind}")
+    server.log.info(f"Workers: {workers}")
+    server.log.info(f"Threads: {threads}")
+    server.log.info(f"Timeout: {timeout}s")
 
 def post_fork(server, worker):
     """Called just after a worker has been forked."""
@@ -119,15 +156,15 @@ def worker_abort(worker):
     """Called just after a worker received the SIGABRT signal."""
     worker.log.info(f"Worker {worker.pid} received SIGABRT, shutting down immediately...")
 
+def worker_exit(server, worker):
+    """Called when a worker exits"""
+    server.log.info(f"Worker (pid: {worker.pid}) exiting, cleaning up...")
+
 def on_exit(server):
     """Called just before the master process exits."""
     server.log.info("=" * 60)
     server.log.info("Project Management System - Gunicorn Server Shutting Down")
     server.log.info("=" * 60)
-
-# ============================================
-# Environment Variables
-# ============================================
 
 def when_ready(server):
     """Called just after the server is started."""
@@ -144,23 +181,17 @@ def when_ready(server):
     db_type = os.getenv('DATABASE_TYPE', 'postgresql')
     server.log.info(f"📊 Database Type: {db_type}")
     server.log.info(f"📊 Database Host: {db_host}")
+    server.log.info(f"📊 Database Port: {os.getenv('DB_PORT', '5432')}")
     
     # Check if running on Render
     if os.getenv('RENDER', False):
         server.log.info("🚀 Running on Render Platform")
-        server.log.info(f"🌐 Service URL: https://{os.getenv('RENDER_EXTERNAL_HOSTNAME', 'localhost')}")
+        external_host = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'localhost')
+        server.log.info(f"🌐 Service URL: https://{external_host}")
     else:
         server.log.info("💻 Running in local development mode")
     
     server.log.info("=" * 60)
-
-# ============================================
-# Error Handling
-# ============================================
-
-def on_reload(server):
-    """Called just before the master process is reloaded."""
-    server.log.info("Reloading Gunicorn configuration...")
 
 def pre_request(worker, req):
     """Called just before a request is processed."""
@@ -172,3 +203,62 @@ def post_request(worker, req, environ, resp):
         worker.log.warning(f"Request failed: {req.method} {req.path} - Status: {resp.status_code}")
     else:
         worker.log.debug(f"Request completed: {req.method} {req.path} - Status: {resp.status_code}")
+
+# ============================================
+# Error Handling
+# ============================================
+
+def on_reload(server):
+    """Called just before the master process is reloaded."""
+    server.log.info("Reloading Gunicorn configuration...")
+
+# ============================================
+# StatsD Configuration (Optional)
+# ============================================
+
+# StatsD host to send metrics to
+statsd_host = None
+
+# StatsD port
+statsd_port = 8125
+
+# StatsD prefix
+statsd_prefix = ''
+
+# ============================================
+# Prometheus Configuration (Optional)
+# ============================================
+
+# Enable Prometheus metrics
+enable_metrics = False
+
+# Metrics port
+metrics_port = 9100
+
+# ============================================
+# Environment Variables to Set
+# ============================================
+
+def post_worker_init(worker):
+    """Called just after a worker has been initialized."""
+    import socket
+    import time
+    
+    # Set socket timeout
+    socket.setdefaulttimeout(30)
+    
+    worker.log.info(f"Worker {worker.pid} initialized successfully at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+# ============================================
+# Main Configuration Summary
+# ============================================
+
+if __name__ == "__main__":
+    print("Gunicorn Configuration Summary:")
+    print(f"  bind: {bind}")
+    print(f"  workers: {workers}")
+    print(f"  threads: {threads}")
+    print(f"  timeout: {timeout}")
+    print(f"  max_requests: {max_requests}")
+    print(f"  loglevel: {loglevel}")
+    print(f"  proc_name: {proc_name}")
