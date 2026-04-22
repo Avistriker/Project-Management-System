@@ -1,44 +1,36 @@
 services:
   - type: web
     name: project-management-system
-    env: python
+    runtime: python
+    repo: https://github.com/YOUR_USERNAME/YOUR_REPO_NAME
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app -c gunicorn.conf.py
     envVars:
       - key: SECRET_KEY
-        generateValue: true
-      - key: MYSQL_HOST
-        fromDatabase:
-          name: project_management_db
-          property: host
-      - key: MYSQL_USER
-        fromDatabase:
-          name: project_management_db
-          property: user
-      - key: MYSQL_PASSWORD
-        fromDatabase:
-          name: project_management_db
-          property: password
-      - key: MYSQL_DB
-        fromDatabase:
-          name: project_management_db
-          property: database
-      - key: MYSQL_PORT
-        value: "3306"
+        value: 08d8440116c5b8b558bd90d064310f2aeb9846ae028c3c89b66d4e289baa5fbe
+      - key: DATABASE_TYPE
+        value: postgresql
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        value: postgres
       - key: MAIL_SERVER
-        value: "smtp.gmail.com"
+        value: smtp.gmail.com
       - key: MAIL_PORT
-        value: "587"
+        value: 587
       - key: MAIL_USE_TLS
-        value: "true"
+        value: true
       - key: MAIL_USERNAME
-        value: "your-email@gmail.com"
+        sync: false
       - key: MAIL_PASSWORD
-        value: "your-app-password"
-
-databases:
-  - name: project_management_db
-    plan: free
-    databaseName: project_management_system
-    user: project_management_user
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /
