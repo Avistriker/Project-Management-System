@@ -4,21 +4,23 @@ services:
     runtime: python
     repo: https://github.com/Avistriker/Project-Management-System
     plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
     envVars:
-      - key: SECRET_KEY
-        value: 08d8440116c5b8b558bd90d064310f2aeb9846ae028c3c89b66d4e289baa5fbe
       - key: DATABASE_TYPE
         value: postgresql
-      - key: DB_USER
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
       - key: DB_HOST
-        sync: false
+        value: db.yynqonxitpkquazngzm.supabase.co
       - key: DB_PORT
         value: 5432
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASSWORD
+        sync: false
       - key: DB_NAME
         value: postgres
+      - key: SECRET_KEY
+        value: 08d8440116c5b8b558bd90d064310f2aeb9846ae028c3c89b66d4e289baa5fbe
       - key: MAIL_SERVER
         value: smtp.gmail.com
       - key: MAIL_PORT
@@ -31,6 +33,4 @@ services:
         sync: false
       - key: PYTHON_VERSION
         value: 3.11.0
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
-    healthCheckPath: /
+    healthCheckPath: /health
