@@ -19,14 +19,14 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', '08d8440116c5b8b558bd90d064310f2aeb9846ae028c3c89b66d4e289baa5fbe')
 
 # Database configuration - Support both MySQL (local) and PostgreSQL (Supabase)
-db_type = os.getenv('DATABASE_TYPE', 'postgresql')  # 'mysql' or 'postgresql'
+db_type = os.getenv('DATABASE_TYPE', 'postgresql')
 
 if db_type == 'mysql':
     # MySQL configuration for local development
     db_user = os.getenv('MYSQL_USER', 'root')
     db_password = os.getenv('MYSQL_PASSWORD', '12345')
     db_host = os.getenv('MYSQL_HOST', 'localhost')
-    db_port = os.getenv('MYSQL_PORT', '8080')
+    db_port = os.getenv('MYSQL_PORT', '3306')
     db_name = os.getenv('MYSQL_DB', 'project_management_system')
     app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 else:
@@ -405,10 +405,7 @@ def send_password_reset_otp():
         msg = Message('Password Reset OTP - Project Management System', 
                      sender=app.config['MAIL_USERNAME'], 
                      recipients=[email])
-        msg.body = f'''Your OTP for password reset is: {otp_code}
-
-This OTP will expire in 10 minutes.
-'''
+        msg.body = f'Your OTP for password reset is: {otp_code}\n\nThis OTP will expire in 10 minutes.'
         mail.send(msg)
         return jsonify({'success': True, 'message': 'Password reset OTP sent successfully'})
     except Exception as e:
@@ -660,10 +657,10 @@ def send_otp():
     try:
         if purpose == 'password_reset':
             subject = 'Password Reset OTP - Project Management System'
-            body = f'Your OTP for password reset is: {otp_code}. It will expire in 10 minutes.'
+            body = f'Your OTP for password reset is: {otp_code}\n\nThis OTP will expire in 10 minutes.'
         else:
             subject = 'Your OTP for Registration - Project Management System'
-            body = f'Your OTP for registration is: {otp_code}. It will expire in 10 minutes.'
+            body = f'Your OTP for registration is: {otp_code}\n\nThis OTP will expire in 10 minutes.'
         
         msg = Message(subject, sender=app.config['MAIL_USERNAME'], recipients=[email])
         msg.body = body
@@ -1654,20 +1651,23 @@ def internal_error(error):
     return render_template('500.html'), 500
 
 if __name__ == '__main__':
+    print("=" * 60)
     print("Starting Project Management System...")
-    print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    print("=" * 60)
+    print(f"Database Type: {os.getenv('DATABASE_TYPE', 'postgresql')}")
+    print(f"Database Host: {os.getenv('DB_HOST', 'localhost')}")
     
     with app.app_context():
         try:
             db.create_all()
-            print("✅ Database tables created successfully!")
+            print("✅ Database tables verified/created successfully!")
         except Exception as e:
-            print(f"❌ Error creating database tables: {e}")
-            print("\nTroubleshooting steps:")
-            print("1. Check database connection parameters")
-            print("2. Verify credentials in .env file")
-            print("3. For Supabase, run setup_supabase.py first")
+            print(f"⚠️ Database warning: {e}")
+            print("Continuing with existing tables...")
     
+    print("=" * 60)
     print("✅ Application started successfully!")
     port = int(os.getenv('PORT', 5000))
+    print(f"🌐 Server running on port: {port}")
+    print("=" * 60)
     app.run(debug=False, host='0.0.0.0', port=port)
