@@ -11,8 +11,8 @@ import csv
 import io
 from io import StringIO
 import urllib.parse
+import socket
 import time
-import random
 
 # Load environment variables
 load_dotenv()
@@ -34,10 +34,7 @@ if db_type == 'mysql':
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_size': 5,
         'pool_recycle': 3600,
-        'pool_pre_ping': True,
-        'pool_use_lifo': True,
-        'max_overflow': 2,
-        'pool_timeout': 30
+        'pool_pre_ping': True
     }
 else:
     # PostgreSQL configuration for Supabase
@@ -49,17 +46,28 @@ else:
     
     # URL encode password to handle special characters
     encoded_password = urllib.parse.quote_plus(db_password)
-    app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql+psycopg2://{db_user}:{encoded_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
     
-    # Connection pool settings for PostgreSQL/Supabase
+    # Use transaction pooler or direct connection
+    use_pooler = os.getenv('USE_POOLER', 'true').lower() == 'true'
+    use_transaction_pooler = os.getenv('USE_TRANSACTION_POOLER', 'false').lower() == 'true'
+    
+    if use_transaction_pooler:
+        # Transaction pooler (port 6543)
+        app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql+psycopg2://{db_user}:{encoded_password}@{db_host}:6543/{db_name}?sslmode=require&connect_timeout=15"
+    elif use_pooler:
+        # Session pooler (port 5432)
+        app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql+psycopg2://{db_user}:{encoded_password}@{db_host}:{db_port}/{db_name}?sslmode=require&connect_timeout=15&keepalives=1&keepalives_idle=5&keepalives_interval=2"
+    else:
+        # Direct connection
+        app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql+psycopg2://{db_user}:{encoded_password}@{db_host}:{db_port}/{db_name}?sslmode=require&connect_timeout=15"
+    
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_size': 3,
+        'pool_size': 1,
         'pool_recycle': 300,
         'pool_pre_ping': True,
         'pool_use_lifo': True,
-        'max_overflow': 2,
-        'pool_timeout': 10,
-        'echo_pool': False
+        'max_overflow': 0,
+        'pool_timeout': 30
     }
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -72,8 +80,6 @@ app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
 app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
-app.config['MAIL_MAX_EMAILS'] = None
-app.config['MAIL_ASCII_ATTACHMENTS'] = False
 app.config['MAIL_SUPPRESS_SEND'] = False
 app.config['TESTING'] = False
 
@@ -737,7 +743,6 @@ Please enter this OTP to complete your registration.
         print(f"Email error details: {str(e)}")
         db.session.rollback()
         
-        # Return more specific error message
         error_msg = str(e)
         if "Authentication" in error_msg or "login" in error_msg.lower():
             return jsonify({'success': False, 'message': 'Email service authentication failed. Please contact support.'})
